@@ -176,59 +176,6 @@ def api_me():
         return jsonify({"logged_in": True, "email": session["user_email"]})
     return jsonify({"logged_in": False})
 
-
-# ================= CHAT API (AI Request + History Save) =================
-
-@app.route("/api/chat", methods=["POST"])
-@login_required
-def api_chat():
-    if not GEMINI_API_KEY:
-        return jsonify({"success": False, "message": "Server configuration error: Missing API Key"}), 500
-
-    data = request.get_json(silent=True) or {}
-    chat_history = data.get("history", [])
-
-    if not chat_history:
-         return jsonify({"success": False, "message": "কোনো চ্যাট হিস্ট্রি পাওয়া যায়নি।"}), 400
-
-    try:
-        # ১. Gemini মডেলকে কল করা
-        response = model.generate_content(chat_history)
-        ai_reply = response.text
-
-        # ২. ইউজারের মেসেজ বের করে লগ ফাইলে সেভ করা
-        user_message = ""
-        if len(chat_history) > 0 and chat_history[-1]["role"] == "user":
-            user_message = chat_history[-1]["parts"][0]["text"]
-
-        entry = {
-            "user_email": session.get("user_email", "unknown"),
-            "user_message": user_message,
-            "ai_response": ai_reply,
-            "timestamp": time.time(),
-        }
-
-        # JSON ফাইলে হিস্ট্রি সেভ
-        saved_history = []
-        if os.path.exists(CHAT_LOG_FILE):
-            try:
-                with open(CHAT_LOG_FILE, "r", encoding="utf-8") as f:
-                    saved_history = json.load(f)
-            except Exception:
-                saved_history = []
-
-        saved_history.append(entry)
-
-        with open(CHAT_LOG_FILE, "w", encoding="utf-8") as f:
-            json.dump(saved_history, f, ensure_ascii=False, indent=2)
-
-        # ৩. ফ্রন্টএন্ডে এআই এর উত্তর পাঠানো
-        return jsonify({"success": True, "reply": ai_reply})
-
-    except Exception as e:
-        print("Gemini API Error:", e)
-        return jsonify({"success": False, "message": f"Server Error: {str(e)}"}), 500
-
 import google.generativeai as genai
 import config
 
