@@ -252,11 +252,53 @@ const setComposerDisabled = (disabled) => {
 };
 
 const getGeminiResponse = async (userText) => {
-    // ১. ইউজারের মেসেজ লোকাল মেমোরিতে সেভ
-    chatHistory.push({
-        role: "user",
-        parts: [{ text: userText }]
-    });
+    // ১. ইউজারের মেসেজ মেমোরিতে সেভ
+    chatHistory.push({ role: "user", parts: [{ text: userText }] });
+    saveHistory();
+
+    try {
+        // গুগলের বদলে সরাসরি আপনার পাইথন সার্ভারে রিকোয়েস্ট পাঠানো হচ্ছে
+        const response = await fetch('/api/chat', {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: userText })
+        });
+
+        const data = await response.json();
+        let aiText = "";
+
+        if (data.success) {
+            aiText = data.reply;
+            
+            // ২. এআই-এর উত্তর মেমোরিতে সেভ
+            chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+            saveHistory();
+
+            // ডাটাবেসে সেভ
+            if (typeof saveToFriendDatabase === "function") {
+                saveToFriendDatabase(userText, aiText);
+            }
+        } else {
+            aiText = data.reply || "সার্ভার থেকে কোনো উত্তর আসেনি।";
+            chatHistory.pop();
+            saveHistory();
+        }
+
+        removeTypingIndicator();
+        appendMessage(aiText, "incoming");
+
+    } catch (error) {
+        console.error("Fetch Error:", error);
+        removeTypingIndicator();
+        appendMessage("Sorry, server or network error. Please try again!", "incoming");
+        chatHistory.pop();
+        saveHistory();
+    } finally {
+        setComposerDisabled(false);
+        input.focus();
+    }
+};
+
     saveHistory();
 
     try {

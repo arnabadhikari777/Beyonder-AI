@@ -229,6 +229,28 @@ def api_chat():
         print("Gemini API Error:", e)
         return jsonify({"success": False, "message": f"Server Error: {str(e)}"}), 500
 
+import google.generativeai as genai
+import config
+
+# জেমিনি এপিআই কনফিগার করা
+genai.configure(api_key=config.GEMINI_API_KEY)
+model = genai.GenerativeModel("gemini-1.5-flash")
+
+# ফ্রন্টএন্ড থেকে মেসেজ গ্রহণ করার রুট
+@app.route("/api/chat", methods=["POST"])
+@login_required
+def api_chat():
+    data = request.get_json(silent=True) or {}
+    user_message = data.get("message", "")
+
+    if not user_message:
+        return jsonify({"success": False, "reply": "কোনো মেসেজ পাওয়া যায়নি।"})
+
+    try:
+        response = model.generate_content(user_message)
+        return jsonify({"success": True, "reply": response.text})
+    except Exception as e:
+        return jsonify({"success": False, "reply": f"সার্ভার এরর: {str(e)}"})
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
